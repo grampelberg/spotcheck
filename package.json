@@ -1,0 +1,45 @@
+{
+  "name": "@grampelberg/spotcheck",
+  "type": "module",
+  "scripts": {
+    "dep:check": "depcheck",
+    "format:check": "biome format && just --fmt --unstable --check",
+    "lint:check": "biome lint --error-on-warnings && tsc --noEmit"
+  },
+  "exports": {
+    ".": "./src/lib.ts",
+    "./bun": {
+      "default": "./src/bun.ts",
+      "types": "./types/bun.d.ts"
+    }
+  },
+  "devDependencies": {
+    "depcheck": "^1.4.7"
+  },
+  "peerDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@types/he": "^1.2.3",
+    "@types/pngjs": "^6.0.5",
+    "@types/debug": "^4.1.12",
+    "callsites": "^4.2.0",
+    "chalk": "^5.6.2",
+    "debug": "^4.4.3",
+    "generic-pool": "^3.9.0",
+    "he": "^1.2.0",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
+    "puppeteer": "^24.22.3",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "sharp": "^0.34.4",
+    "zod": "^4.1.11"
+  },
+  "peerDependenciesMeta": {
+    "@types/bun": {
+      "optional": true
+    }
+  }
+}
