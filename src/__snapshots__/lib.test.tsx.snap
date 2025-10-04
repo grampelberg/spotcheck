@@ -1,0 +1,11 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`screenshot throws when nothing is rendered 1`] = `
+"No elements found for "hello-empty":
+<html lang="en">
+  <head></head>
+  <body>
+    
+  </html>
+  "
+`;
