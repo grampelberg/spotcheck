@@ -20,7 +20,6 @@ test('group states', async () => {
     'border-4',
     'group-hover:bg-blue-500',
     'group-active:border-purple-500',
-    'group-focus:text-green-500',
   )
 
   expect(
@@ -34,6 +33,14 @@ test('group states', async () => {
       </button>
     </div>,
   ).toMatchScreenshot('group states')
+})
+
+test('brand new component', async () => {
+  expect(
+    <button type="button" className="bg-red-500 hover:bg-red-700">
+      New
+    </button>,
+  ).toMatchScreenshot('brand new component')
 })
 
 test('document interaction', async () => {
