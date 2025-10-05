@@ -1,6 +1,5 @@
 {
   "name": "examples",
-  "private": true,
   "scripts": {
     "dep:check": "depcheck",
     "format:check": "biome format && just --fmt --unstable --check",
