@@ -1,13 +1,4 @@
 mod test './just/test.just'
+mod ci './just/ci.just'
 
-dep:
-    bun dep:check
-
-format:
-    bun format:check
-
-lint:
-    bun lint:check
-
-ci: format lint dep
-    just test
+import './just/recurse.just'

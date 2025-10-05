@@ -11,6 +11,7 @@ const envBool = z.preprocess(val => {
 const settingsSchema = z.object({
   SPOTCHECK_PRESERVE: envBool.default(false),
   SPOTCHECK_UPDATE: envBool.default(false),
+  GITHUB_ACTIONS: envBool.default(false),
   TEST_CLEAN: envBool.default(true),
 })
 

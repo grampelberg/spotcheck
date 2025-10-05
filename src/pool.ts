@@ -1,9 +1,15 @@
 import type { Pool } from 'generic-pool'
 import genericPool from 'generic-pool'
-import puppeteer, { type Browser } from 'puppeteer'
+import puppeteer, { type Browser, type LaunchOptions } from 'puppeteer'
 import { z } from 'zod'
 
 import { env } from './env.ts'
+
+const launchArgs: LaunchOptions = env().GITHUB_ACTIONS
+  ? {
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    }
+  : {}
 
 // biome-ignore lint/nursery/useExplicitType: zod
 const optSchema = z.object({
@@ -27,7 +33,7 @@ export const newPool = (rawOpts?: PoolOptions): genericPool.Pool<Browser> => {
 
   const factory = {
     create: (): Promise<Browser> =>
-      puppeteer.launch({ headless: !opts.preserveBrowser }),
+      puppeteer.launch({ headless: !opts.preserveBrowser, ...launchArgs }),
     destroy: (browser: Browser): Promise<void> => {
       if (!opts.preserveBrowser) return browser.close()
       return Promise.resolve()

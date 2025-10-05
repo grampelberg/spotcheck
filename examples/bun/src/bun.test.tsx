@@ -1,9 +1,10 @@
 import { expect, test } from 'bun:test'
+import clsx from 'clsx'
 
 import { render } from '@testing-library/react'
 
 const stateClasses =
-  'hover:bg-blue-500 active:border-purple-500 focus:text-black'
+  'hover:bg-blue-500 active:border-purple-500 focus:text-white'
 
 test('<element>', async () => {
   expect(
@@ -14,12 +15,21 @@ test('<element>', async () => {
 })
 
 test('group states', async () => {
+  const groupClasses = clsx(
+    'flex-auto',
+    'border-4',
+    'group-hover:bg-blue-500',
+    'group-active:border-purple-500',
+    'group-focus:text-green-500',
+  )
+
   expect(
-    <div className="flex items-center group gap-2">
-      <button type="button" className={stateClasses}>
+    // biome-ignore lint/a11y/noNoninteractiveTabindex: example
+    <div className="flex items-center group gap-2 w-32" tabIndex={0}>
+      <button type="button" className={groupClasses}>
         Left
       </button>
-      <button type="button" className={stateClasses}>
+      <button type="button" className={groupClasses}>
         Right
       </button>
     </div>,
