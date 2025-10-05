@@ -12,7 +12,7 @@ const launchArgs: LaunchOptions = env().GITHUB_ACTIONS
   : {}
 
 // biome-ignore lint/nursery/useExplicitType: zod
-const optSchema = z.object({
+export const optSchema = z.object({
   max: z
     .number()
     .min(1)

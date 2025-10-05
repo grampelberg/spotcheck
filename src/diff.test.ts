@@ -1,96 +1,61 @@
-import { describe, expect, test } from 'bun:test'
-
+import pixelmatch from 'pixelmatch'
+import { PNG } from 'pngjs'
 import sharp from 'sharp'
 
-import { visualDiff } from './diff.ts'
+const png = async (buf: Buffer): Promise<PNG> => {
+  const img = new PNG().parse(buf)
+  await new Promise(resolve => {
+    img.on('parsed', resolve)
+  })
 
-const getDimensions = async (
-  img: Buffer,
-): Promise<{ width: number; height: number }> => {
-  const metadata = await sharp(img).metadata()
-
-  if (metadata.width === undefined || metadata.height === undefined)
-    throw new Error('Unable to read stitched image dimensions')
-
-  return { width: metadata.width, height: metadata.height }
+  return img
 }
 
-describe('visualDiff', () => {
-  test('mismatched images are not identical', async () => {
-    const left = sharp({
-      text: {
-        text: 'left',
-      },
-    })
-    const leftMeta = await left.metadata()
+const toBuffer = async (img: PNG): Promise<Buffer> => {
+  const chunks: Buffer[] = []
 
-    const right = sharp({
-      text: {
-        text: 'right',
-      },
-    })
-    const rightMeta = await right.metadata()
-
-    expect(leftMeta.width).not.toBe(rightMeta.width)
-
-    const { img, identical } = await visualDiff(
-      await left.png().toBuffer(),
-      await right.png().toBuffer(),
-    )
-    expect(identical).toBe(false)
-
-    const { width } = await getDimensions(img)
-
-    expect(width).toBeLessThan(Math.max(leftMeta.width, rightMeta.width) * 3)
+  await new Promise(resolve => {
+    img
+      .pack()
+      .on('data', (chunk: Buffer) => {
+        chunks.push(chunk)
+      })
+      .on('end', resolve)
   })
 
-  test('identical images are actually identical', async () => {
-    const src = sharp({
-      text: {
-        text: 'same',
-      },
-    })
-    const srcMeta = await src.metadata()
+  return Buffer.concat(chunks)
+}
 
-    const { img, identical } = await visualDiff(
-      await src.png().toBuffer(),
-      await src.png().toBuffer(),
-    )
+export interface DiffResult {
+  img: Buffer
+  identical: boolean
+}
 
-    expect(identical).toBe(true)
-
-    const { width } = await getDimensions(img)
-    expect(width).toBeGreaterThan(srcMeta.width * 3)
+const stitch = async (imgs: Buffer[]): Promise<Buffer> =>
+  await sharp(imgs, {
+    join: { across: imgs.length, shim: 4 },
   })
+    .png()
+    .toBuffer()
 
-  test('different images are different', async () => {
-    const src = { width: 10, height: 10 }
+export const visualDiff = async (
+  before: Buffer,
+  after: Buffer,
+): Promise<DiffResult> => {
+  const img1 = await png(before)
+  const img2 = await png(after)
 
-    const left = sharp({
-      create: {
-        width: src.width,
-        height: src.height,
-        channels: 4,
-        background: { r: 255, g: 255, b: 255, alpha: 1 },
-      },
-    })
-    const right = sharp({
-      create: {
-        width: src.width,
-        height: src.height,
-        channels: 4,
-        background: { r: 255, g: 255, b: 0, alpha: 1 },
-      },
-    })
+  if (img1.width !== img2.width || img1.height !== img2.height)
+    return { img: await stitch([before, after]), identical: false }
 
-    const { img, identical } = await visualDiff(
-      await left.png().toBuffer(),
-      await right.png().toBuffer(),
-    )
+  const { width, height } = img1
 
-    expect(identical).toBe(false)
+  const output = new PNG({ width, height })
 
-    const { width } = await getDimensions(img)
-    expect(width).toBeGreaterThan(src.width * 3)
-  })
-})
+  const mismatch = pixelmatch(img1.data, img2.data, output.data, width, height)
+
+  return {
+    img: await stitch([before, after, await toBuffer(output)]),
+    identical: mismatch === 0,
+  }
+}

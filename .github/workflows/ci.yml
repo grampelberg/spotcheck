@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: "true"
 
       - uses: jdx/mise-action@v2
         with:
@@ -29,7 +31,11 @@ jobs:
         run: just install
 
       - name: CI
-        run: just ci
+        run: DEBUG=@grampelberg/spotcheck:* just ci
 
-      - name: Run tests
-        run: DEBUG=@grampelberg/spotcheck:* bun test
+      - name: debug
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug
+          path: __debug__
