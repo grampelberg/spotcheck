@@ -1,7 +1,13 @@
 {
   "name": "examples",
   "private": true,
+  "scripts": {
+    "dep:check": "depcheck",
+    "format:check": "biome format && just --fmt --unstable --check",
+    "lint:check": "biome lint --error-on-warnings && tsc --noEmit"
+  },
   "devDependencies": {
+    "@biomejs/biome": "^2.2.5",
     "@grampelberg/spotcheck": "file:../..",
     "@happy-dom/global-registrator": "^19.0.2",
     "@testing-library/react": "^16.3.0",
@@ -11,5 +17,8 @@
   "peerDependencies": {
     "typescript": "^5"
   },
-  "dependencies": {}
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "tailwindcss": "^4.1.14"
+  }
 }

@@ -14,10 +14,13 @@
     }
   },
   "devDependencies": {
+    "@types/bun": "^1.2.23",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "biome": "^0.3.3",
     "depcheck": "^1.4.7"
   },
   "peerDependencies": {
-    "@types/bun": "latest",
     "typescript": "^5"
   },
   "dependencies": {
@@ -41,5 +44,6 @@
     "@types/bun": {
       "optional": true
     }
-  }
+  },
+  "workspaces": ["examples/*"]
 }

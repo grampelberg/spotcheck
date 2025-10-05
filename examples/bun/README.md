@@ -1,6 +1,6 @@
 # Bun Example
 
-See [bun.test.tsx](./bun.test.tsx) for an example of how to use with Bun.
+See [bun.test.tsx](./src/bun.test.tsx) for an example of how to use with Bun.
 
 To install dependencies:
 

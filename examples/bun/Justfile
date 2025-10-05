@@ -1,0 +1,2 @@
+mod test '../../just/test.just'
+mod ci '../../just/ci.just'

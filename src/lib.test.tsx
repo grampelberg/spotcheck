@@ -227,7 +227,7 @@ describe('screenshot', async () => {
 
     await screenshot(...args, fileOpts)
 
-    test.each(__allStates)('%s is the same', async state => {
+    test.each(__allStates)('%s is the same', async (state: string) => {
       const results = await screenshot(...args, {
         ...fileOpts,
         states: [state],

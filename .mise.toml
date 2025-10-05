@@ -1,3 +1,4 @@
 [tools]
 prettier = "latest"
 bun = "latest"
+fd = "latest"

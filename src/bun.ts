@@ -23,7 +23,7 @@ const log: debug.Debugger = debug(`${pkgName}:bun`)
 let diffDir: string = ''
 
 beforeAll(async () => {
-  diffDir = await mkdtemp(join(tmpdir(), `${pkgName}-`))
+  diffDir = await mkdtemp(join(tmpdir(), `${pkgName}-`.replace(/[\\/]/g, '-')))
 })
 
 const builder =
