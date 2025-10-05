@@ -1,6 +1,10 @@
 # Spotcheck
 
-Preview the design of your components as part of a pull request. Spotcheck:
+Preview the design of your components as part of a pull request. Check out an
+[example][example-pr] PR for what it could look like in your repo. Spotcheck:
+
+[example-pr]:
+  https://github.com/grampelberg/spotcheck/pull/2/files#diff-6ef306e868de1c171e746195bbf9d18d9c703e14900ee8f2c16bd34229177aa9
 
 - Renders and screenshots your components as part of your unit tests.
 - Interacts with each component to capture the major interaction states (active,
@@ -10,11 +14,14 @@ Preview the design of your components as part of a pull request. Spotcheck:
 
 This all works at the component level. You can spotcheck any part of the UI -
 from the smallest button up to a full page. By capturing the different states of
-your components, you can understand how a particular change impacts the design.
-For many changes, you no longer need to ask the author for a set of screenshots
-or run things yourself just to see how interactions work.
+components, spot checking what's happened with the design can be reviewed as
+part of the PR itself.
 
-## states
+## Interaction States
+
+By default, spotcheck captures a set of states for each element. It is possible
+to limit these in configuration for those that aren't visually different from
+the `default` state. These are:
 
 - `:active` - The mouse is positioned over the element and the mouse button is
   pressed. This results in a combination of `:active`, `:hover` and `:focus`
@@ -75,13 +82,46 @@ Now, you'll be able to use `toMatchScreenshot` in your tests:
 expect(<div />).toMatchScreenshot('test component')
 ```
 
-If you're using a virtual DOM (like happy-dom), you can pass a string instead:
+If you're using a virtual DOM (like happy-dom), you can pass either the global
+document (or just a string if you'd like to handle the rendering yourself):
 
 ```ts
-expect(document.body.outerHTML).toMatchScreenshot("test component");
+expect(document).toMatchScreenshot("test component");
 ```
 
-Check out the [example](./examples/bun) for something that works.
+Check out the [example](./examples/bun) if you'd like to see something fully
+working.
+
+### Options
+
+These work both globally (as shown above) and on a per-call basis:
+
+```ts
+{
+  // An optional list of plugins to use during build. This is where
+  // bun-plugin-tailwind will go.
+  plugins: [],
+  // To make this faster, puppeteer browsers are pooled.
+  pool: {
+    // Max number of browsers to allow launched. Tweak this if you're running
+    // things concurrently.
+    max: 10,
+    // Run the browser in head-full mode and keep it around after the test.
+    // This is helpful for debugging.
+    preserveBrowser: false,
+  },
+  // An optional list of css files to include. This will be passed directly to
+  // the builder and for bun, should be the path to your CSS files.
+  css: [],
+  // The path to store screenshots. This should be checked into git.
+  path: '__screenshots__',
+  // Whether or not to update the screenshots.
+  update: false,
+  // The different states to capture. To reduce noise, if you're not planning
+  // on having one of these states - disable it. The value can be a subset of:
+  states: ['active', 'default', 'focus', 'hover'],
+}
+```
 
 ### Updating Screenshots
 
