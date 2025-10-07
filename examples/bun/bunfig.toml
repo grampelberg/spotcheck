@@ -1,2 +1,2 @@
 [test]
-preload = ["./preload.ts", "./dom.ts"]
+preload = ["./spotcheck.ts", "./dom.ts"]

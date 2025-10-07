@@ -9,13 +9,14 @@ Preview the design of your components as part of a pull request. Check out an
 - Renders and screenshots your components as part of your unit tests.
 - Interacts with each component to capture the major interaction states (active,
   focus, hover).
-- Compares the screenshots to what's checked in and shows a diff if things
-  change.
+- Fails tests when content has changed but screenshots haven't been updated.
+- Works cross-platform.
 
-This all works at the component level. You can spotcheck any part of the UI -
-from the smallest button up to a full page. By capturing the different states of
-components, spot checking what's happened with the design can be reviewed as
-part of the PR itself.
+Spotcheck works at the component level, not the page. You can get a preview of
+any part of the UI - from the smallest button up to a full page. By capturing
+the individual interactive states of components, such as `:active` or `:hover`,
+reviewing changes becomes simpler and helps to make sure nothing falls through
+the cracks.
 
 ## Interaction States
 
@@ -40,7 +41,7 @@ buttons you'll want to test those directly to see their individuals states. For
 group states, check out tailwind's
 [group](https://tailwindcss.com/docs/hover-focus-and-other-states#styling-based-on-the-descendants-of-a-group).
 
-## Setup
+## Repo Setup
 
 You'll want to check the \*.png files generated in, make sure that they're
 included in LFS:
@@ -51,32 +52,7 @@ git lfs track "*.png"
 
 ## Bun
 
-To use with bun, you'll want to run `expect.extend()` as part of preload. To set
-this up, first create a file called `test-preload.ts`:
-
-```ts
-import { expect } from "bun:test";
-import bunPluginTailwind from "bun-plugin-tailwind";
-import { toMatchScreenshot } from "@grampelberg/spotcheck/bun";
-
-import cssPath from "@/index.css";
-
-expect.extend({ toMatchScreenshot: toMatchScreenshot({
-  plugins: [bunPluginTailwind],
-  css: [cssPath]
-}});
-```
-
-Note: you can set these options either globally here, or on a per-call basis.
-
-Then, edit `bunfig.toml` to include:
-
-```toml
-[test]
-preload = ["./test-preload.ts"]
-```
-
-Now, you'll be able to use `toMatchScreenshot` in your tests:
+Once setup, you'll be able to use the `toMatchScreenshot` matcher:
 
 ```ts
 expect(<div />).toMatchScreenshot('test component')
@@ -91,6 +67,52 @@ expect(document).toMatchScreenshot("test component");
 
 Check out the [example](./examples/bun) if you'd like to see something fully
 working.
+
+### Setup
+
+To use spotcheck with bun, you'll need to modify three files:
+
+- `spotcheck.ts` to add the `toMatchScreenshot` matcher and set your global
+  settings.
+- `bunfig.toml` to load `spotcheck.ts` before any tests run.
+- `tsconfig.json` to add the types.
+
+First off, create a file called `spotcheck.ts`. This will extend the available
+matchers to add `toMatchScreenshot`. This example assumes that you're using the
+tailwind plugin and have an `index.css` file.
+
+```ts
+import { expect } from "bun:test";
+import bunPluginTailwind from "bun-plugin-tailwind";
+import { toMatchScreenshot } from "@grampelberg/spotcheck/bun";
+
+import cssPath from "@/index.css";
+
+expect.extend({ toMatchScreenshot: toMatchScreenshot({
+  plugins: [bunPluginTailwind],
+  css: [cssPath]
+}});
+```
+
+All the options set here are global but can be overridden on a per-call basis.
+Check out the [options](#options) section for more details.
+
+Next up, modify `bunfig.toml` to load `spotcheck.ts` before any tests run.
+
+```toml
+[test]
+preload = ["./spotcheck.ts"]
+```
+
+Finally, add the types to your `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "types": ["@grampelberg/spotcheck/bun"]
+  }
+}
+```
 
 ### Options
 
@@ -110,6 +132,9 @@ These work both globally (as shown above) and on a per-call basis:
     // This is helpful for debugging.
     preserveBrowser: false,
   },
+  // Whether or not to allow missing screenshots. If true, tests will pass if
+  // there is no before version for a screenshot.
+  allowMissing: true,
   // An optional list of css files to include. This will be passed directly to
   // the builder and for bun, should be the path to your CSS files.
   css: [],
@@ -120,6 +145,9 @@ These work both globally (as shown above) and on a per-call basis:
   // The different states to capture. To reduce noise, if you're not planning
   // on having one of these states - disable it. The value can be a subset of:
   states: ['active', 'default', 'focus', 'hover'],
+  // The different platforms to ensure are up to date. If you only care about
+  // screenshots for darwin, set to `['darwin']`.
+  platforms: ['darwin', 'linux', 'win32']
 }
 ```
 
@@ -131,6 +159,16 @@ To update screenshots, set `SPOTCHECK_UPDATE=true`.
 
 You can preserve the browser used for screenshots by setting
 `SPOTCHECK_PRESERVE=true`.
+
+## Cross Platform Rendering
+
+Platforms have their own rendering engines, resulting in subtle differences in
+the screenshots. For example, fonts on Linux have lower weights than on macOS.
+Spotcheck keeps track of the platform by adding its name to the screenshot's
+path. Instead of tracking pixel level differences, spotcheck saves a hash of the
+markup + css used to render the screenshot. It then returns if that has changed
+since the last screenshot. In the case of `toMatchScreenshot`, the test will
+fail, ensuring that the screenshots are updated before merging.
 
 ## Tradeoffs
 
@@ -167,10 +205,3 @@ supported. Please open an issue or PR if you'd like to help out.
 - [ ] Jest
 - [ ] Vitest
 - [ ] esbuild
-
-## Oddities
-
-- `getPath` is going to be framework specific. `util.getCallSites()` works in
-  node (for specific versions) but doesn't for bun.
-- The build itself needs to be different depending on which bundler is being
-  used.

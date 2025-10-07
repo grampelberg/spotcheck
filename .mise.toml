@@ -2,3 +2,4 @@
 prettier = "latest"
 bun = "latest"
 fd = "latest"
+just = "latest"

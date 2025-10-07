@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
-import clsx from 'clsx'
 
 import { render } from '@testing-library/react'
+import clsx from 'clsx'
+import '@grampelberg/spotcheck/bun'
 
 const stateClasses =
   'hover:bg-blue-500 active:border-purple-500 focus:text-white'

@@ -10,5 +10,6 @@ expect.extend({
   toMatchScreenshot: toMatchScreenshot({
     plugins: [bunPluginTailwind],
     css: [cssPath],
+    platforms: ['darwin'],
   }),
 })

@@ -1,7 +1,7 @@
 [no-cd]
 run *ARGS:
     # Force `./src` because bun test doesn't respect package.json
-    bun test {{ ARGS }} src
+    bun test {{ ARGS }} ./src
 
 [no-cd]
 dev $LOG_LEVEL="*=debug":
@@ -10,5 +10,3 @@ dev $LOG_LEVEL="*=debug":
 [no-cd]
 concurrent:
     just test::run "--concurrent"
-
-default: run

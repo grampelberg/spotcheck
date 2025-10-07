@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import { join } from 'node:path'
 
 import debug from 'debug'
+import { hash64 } from 'farmhash-modern'
 import type { Pool } from 'generic-pool'
 import type { Browser, ElementHandle, Page } from 'puppeteer'
 import type { ReactElement } from 'react'
@@ -9,19 +10,24 @@ import ReactDOMServer from 'react-dom/server'
 import { z } from 'zod'
 
 import { name as pkgName } from '../package.json' with { type: 'json' }
-import { visualDiff } from './diff.ts'
 import { basename, dirname } from './fs.ts'
 import { acquire } from './pool.ts'
 
 const log: debug.Debugger = debug(`${pkgName}:lib`)
 
 const allStates: string[] = ['default', 'active', 'focus', 'hover']
+const allPlatforms: string[] = ['darwin', 'linux', 'win32']
 
-export { allStates as __allStates }
+export { allStates as __allStates, allPlatforms as __allPlatforms }
 
 // biome-ignore lint/nursery/useExplicitType: zod
 const stateSchema = z.enum(allStates)
-type IState = z.infer<typeof stateSchema>
+
+// biome-ignore lint/nursery/useExplicitType: zod
+export const platforms = z
+  .array(z.enum(allPlatforms))
+  .default(allPlatforms)
+  .describe('Each platform to check. Defaults to all platforms.')
 
 // biome-ignore lint/nursery/useExplicitType: zod
 export const optionsSchema = z.object({
@@ -51,16 +57,13 @@ the test file.`,
 export type IOptions = z.input<typeof optionsSchema>
 type OOptions = z.output<typeof optionsSchema>
 
-export type Builder = (index: string, css?: string[]) => Promise<string[]>
-
-export interface ScreenshotDiff {
-  state: IState
-  idx: number
-  before?: ArrayBufferView
-  after: ArrayBufferView
-  diff?: Buffer
-  identical: boolean
+export interface RScreenshot {
+  platform: string
+  changed: boolean
+  updated: boolean
 }
+
+export type Builder = (index: string, css?: string[]) => Promise<string[]>
 
 type HandlerFn = (p: Page, e: ElementHandle<Element>) => Promise<void>
 
@@ -123,13 +126,41 @@ const render = (element: string, css?: string[]): string =>
   </html>
   `
 
+interface ChangeOpts {
+  name: string
+  path: string
+  platform: string
+  hash: string
+  update: boolean
+}
+
+interface RHasChanged {
+  changed: boolean
+  updated: boolean
+  platform: string
+}
+
+const hasChanged = async (opts: ChangeOpts): Promise<RHasChanged> => {
+  const metaPath = join(
+    opts.path,
+    `${encodeURIComponent(opts.name)}.${opts.platform}.hash`,
+  )
+  const hash = await fs.readFile(metaPath, 'utf-8').catch(() => null)
+  const updated =
+    opts.platform === process.platform && (opts.update || hash === null)
+
+  if (updated) await fs.writeFile(metaPath, opts.hash)
+
+  return { changed: hash !== opts.hash, updated, platform: opts.platform }
+}
+
 export const screenshot = async (
   element: ReactElement | string,
   name: string,
   builder: Builder,
   pool: Pool<Browser>,
   rawOpts: IOptions = {},
-): Promise<ScreenshotDiff[]> => {
+): Promise<RScreenshot[]> => {
   if (typeof element !== 'string')
     element = ReactDOMServer.renderToString(element)
 
@@ -182,41 +213,48 @@ export const screenshot = async (
   const pngLoc = dirname(opts.path)
   await fs.mkdir(pngLoc, { recursive: true })
 
+  const hash = hash64(content).toString()
+  const results = await Promise.all(
+    allPlatforms.map(platform =>
+      hasChanged({
+        name,
+        path: pngLoc,
+        platform,
+        hash,
+        update: opts.update,
+      }),
+    ),
+  )
+
+  const current = results.find(r => r.platform === process.platform)
+  if (!current) throw new Error('Could not determine current platform')
+
+  const { changed, updated } = current
+
+  if (!changed || !updated) return results
+
+  log('change detected, updating', {
+    platform: process.platform,
+    name,
+    changed,
+    updated,
+  })
+
   // page interactions require the page to be focused, so we can't do this in a
   // single browser in parallel. It would be possible to open a new browser for
   // each state, but that takes ~750ms for each new browser. Setting content on
   // a page takes ~100ms. To keep things speedy, we're doing some basic resets
   // for input and using a single browser/page for everything.
-  return await opts.states.reduce(async (p, state) => {
-    const acc = await p
-
+  for (const state of opts.states) {
     for (const [idx, e] of children.entries()) {
-      const after = await captureElement(page, state, e)
-
       const pngPath = join(pngLoc, basename(name, { variant: state, idx }))
 
-      const before = await fs.readFile(pngPath).catch(() => null)
+      const img = await captureElement(page, state, e)
 
-      if (opts.update || !before) await fs.writeFile(pngPath, after)
-
-      if (!before || opts.update) {
-        acc.push({ state, idx, after, identical: true })
-      } else {
-        const { img, identical } = await visualDiff(before, Buffer.from(after))
-
-        acc.push({
-          state,
-          idx,
-          before,
-          after,
-          diff: img,
-          identical,
-        })
-      }
+      await fs.writeFile(pngPath, img)
     }
+    log('screenshot', { name, state })
+  }
 
-    log('screenshot', { name, update: opts.update, state })
-
-    return acc
-  }, Promise.resolve<ScreenshotDiff[]>([]))
+  return results
 }

@@ -2,6 +2,7 @@
   "ignores": [
     "bun",
     "bun:test",
-    "bun-plugin-tailwind"
+    "bun-plugin-tailwind",
+    "semantic-release",
   ]
 }

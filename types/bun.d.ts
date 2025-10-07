@@ -1,17 +1,10 @@
-import type { IOptions, ScreenshotOptions } from '../src/lib.tsx'
-import type { PoolOptions } from '../src/pool.ts'
+import 'bun:test'
 
 declare module 'bun:test' {
   interface Matchers<T> {
-    toMatchScreenshot(name: string, opts?: ScreenshotOptions): Promise<T>
+    toMatchScreenshot(name: string, opts?: BunOptions): Promise<T>
   }
   interface AsymmetricMatchers {
-    toMatchScreenshot(name: string, opts?: ScreenshotOptions): void
+    toMatchScreenshot(name: string, opts?: BunOptions): void
   }
-}
-
-export interface BunOptions extends IOptions {
-  // Plugins required to build the test cases, tailwind is a common one.
-  plugins?: BunPlugin[]
-  pool?: PoolOptions
 }

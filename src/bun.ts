@@ -1,6 +1,5 @@
 import type { CustomMatcher, MatcherResult } from 'bun:test'
-import { afterAll, beforeAll } from 'bun:test'
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { afterAll } from 'bun:test'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -9,22 +8,28 @@ import chalk from 'chalk'
 import debug from 'debug'
 import { decode } from 'he'
 import type { ReactElement } from 'react'
+import z from 'zod'
 
 import { name as pkgName } from '../package.json' with { type: 'json' }
-import type { BunOptions } from '../types/bun.ts'
 import { env } from './env.ts'
-import { basename, mkdtemp as mkdtempDisposable } from './fs.ts'
-import type { Builder, IOptions, ScreenshotDiff } from './lib.ts'
-import { optionsSchema, screenshot } from './lib.ts'
-import { newPool } from './pool.ts'
+import { mkdtemp as mkdtempDisposable } from './fs.ts'
+import type { Builder, IOptions } from './lib.ts'
+import { optionsSchema, platforms, screenshot } from './lib.ts'
+import { newPool, optSchema as poolOpt } from './pool.ts'
 
 const log: debug.Debugger = debug(`${pkgName}:bun`)
 
-let diffDir: string = ''
-
-beforeAll(async () => {
-  diffDir = await mkdtemp(join(tmpdir(), `${pkgName}-`.replace(/[\\/]/g, '-')))
+// biome-ignore lint/nursery/useExplicitType: zod
+export const bunOptionsSchema = optionsSchema.extend({
+  plugins: z
+    .array(z.any())
+    .optional()
+    .describe(`Bun plugins required to build the test cases.`),
+  pool: poolOpt.default({ max: 10, preserveBrowser: false }),
+  platforms,
 })
+
+export type BunOptions = z.input<typeof bunOptionsSchema>
 
 const builder =
   (plugins: BunPlugin[]): Builder =>
@@ -51,9 +56,6 @@ const builder =
     )
   }
 
-const msgLine = (r: ScreenshotDiff, msg: string): string =>
-  `${[r.state, r.idx].join('.').padEnd(10, ' ')}: ${msg}`
-
 export const toMatchScreenshot = (
   globalOpts?: BunOptions,
 ): CustomMatcher<unknown, [string]> => {
@@ -75,10 +77,7 @@ export const toMatchScreenshot = (
     name: string,
     rawOpts?: IOptions,
   ): Promise<MatcherResult> => {
-    const callOpts = optionsSchema.parse(rawOpts ?? {})
-    const opts = { ...globalOpts, ...callOpts }
-    const plugins = opts.plugins ?? []
-
+    const opts = bunOptionsSchema.parse({ ...globalOpts, ...rawOpts })
     opts.update = rawOpts?.update ?? env().SPOTCHECK_UPDATE
 
     log(`taking screenshot for "${name}":`, opts)
@@ -93,59 +92,40 @@ export const toMatchScreenshot = (
       element = (element as Document).body.outerHTML
     }
 
-    const results = await screenshot(
-      element as ReactElement | string,
-      name,
-      builder(plugins),
-      pool,
-      opts,
-    )
+    const results = (
+      await screenshot(
+        element as ReactElement | string,
+        name,
+        builder(opts.plugins as BunPlugin[]),
+        pool,
+        opts,
+      )
+    ).filter(r => opts.platforms.includes(r.platform))
 
-    const matchResults = await Promise.all(
-      results.map(async r => {
-        if (!r.before) {
-          return {
-            message: msgLine(
-              r,
-              'No screenshot to compare against, generated one',
-            ),
-            pass: true,
-          }
-        }
-
-        if (r.identical) {
-          return {
-            message: msgLine(r, 'Screenshots matched'),
-            pass: true,
-          }
-        }
-
-        const diffPath = join(
-          diffDir,
-          basename(name, { variant: r.state, idx: r.idx }),
-        )
-
-        if (r.diff) await writeFile(diffPath, r.diff)
-
-        return {
-          message: msgLine(
-            r,
-            `Screenshots did not match. If this was expected, set SPOTCHECK_UPDATE=true. Visual diff written to:\n\t${diffPath}`,
-          ),
-          pass: false,
-        }
-      }),
-    )
+    if (!results.some(o => o.changed)) {
+      return {
+        message: () => `Content has not changed.`,
+        pass: true,
+      }
+    }
 
     return {
-      pass: matchResults.every(m => m.pass),
-      message: () =>
-        matchResults.reduce((msg, r) => {
-          const fn = r.pass ? chalk.green : chalk.red
-          const line = fn(r.message)
+      message: () => {
+        let msg = `Content has changed. If this is on purpose, re-run with
+SPOTCHECK_UPDATE=true. Would update ${process.platform}.`
 
-          return `${msg}\n${line}`
-        }, `Screenshot comparison for "${name}" failed:`),
+        for (const r of results) {
+          const changed = r.changed ? 'changed' : 'unchanged'
+          const updated = r.updated ? 'updated' : 'not updated'
+          const color = r.changed && !r.updated ? chalk.red : chalk.white
+          const line = color(`${changed}, ${updated}`)
+
+          msg += `\n${r.platform.padEnd(8)}: ${line}`
+        }
+
+        return msg
+      },
+      pass: results.every(o => !o.changed || o.updated),
     }
   }
 }
