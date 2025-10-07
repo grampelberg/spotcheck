@@ -28,6 +28,9 @@ jobs:
         with:
           experimental: true
 
+      - name: Install
+        run: just install
+
       - name: Audit
         run: bunx npm audit signatures
 
